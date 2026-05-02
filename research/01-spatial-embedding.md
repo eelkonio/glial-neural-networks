@@ -23,6 +23,8 @@ Every subsequent experiment depends on having a spatial embedding. If the embedd
 
 Build a small MLP (2 hidden layers, 256 units each) for MNIST classification. Implement multiple spatial embedding strategies and compare their effect on a simple spatially-coupled learning rate (precursor to full astrocyte system).
 
+Additionally, run all experiments on a **topographic sensor task** — a classification task over a simulated 16×16 sensor grid with spatially correlated inputs — to test whether spatial mechanisms provide greater benefit on tasks with inherent spatial structure.
+
 ### Embedding Methods to Implement
 
 **A. Naive linear mapping**
@@ -93,6 +95,32 @@ def embed_developmental(model, data_loader, n_steps=1000):
     return positions
 ```
 
+**G. Adversarial embedding (negative control)**
+```python
+def embed_adversarial(model, data_loader, n_batches=10):
+    """Deliberately anti-correlated embedding. Computes gradient correlations
+    then assigns positions that MAXIMIZE distance between correlated weights.
+    This is the negative end of the three-point validation curve."""
+    correlations = compute_gradient_correlations(model, data_loader)
+    # Use MDS on NEGATED correlation matrix
+    # Highly correlated weights get maximally distant positions
+    embedding = MDS(n_components=3).fit_transform(-correlations)
+    return normalize_to_unit_cube(embedding)
+```
+
+**H. Differentiable embedding (learnable positions)**
+```python
+def embed_differentiable(model, data_loader, lambda_spatial=0.01):
+    """Treat positions as learnable parameters optimized jointly with
+    the network via a spatial coherence loss. Solves the chicken-and-egg
+    problem by letting gradients flow through both task and spatial losses."""
+    positions = nn.Parameter(torch.rand(n_weights, 3))
+    # Add to optimizer alongside model parameters
+    # Loss = task_loss + lambda_spatial * spatial_coherence_loss
+    # spatial_coherence_loss = mean(distance(i,j) * grad_corr(i,j)) for correlated pairs
+    return positions.detach().numpy()
+```
+
 ### Measurement Protocol
 
 For each embedding method:
@@ -103,6 +131,10 @@ For each embedding method:
    - Convergence speed (steps to 95% of final accuracy)
    - Weight correlation structure (do spatially close weights develop correlated values?)
    - Gradient correlation vs. spatial distance (does the embedding predict gradient similarity?)
+   - **Spatial coherence score** (do spatially close weights develop similar PCA projections after training?)
+   - **Embedding quality over training time** (does the quality score degrade as the network learns?)
+4. Run on both MNIST and the topographic sensor task
+5. Verify the **three-point validation curve**: adversarial embedding hurts, random is neutral, good embedding helps
 
 ### Key Metrics
 
@@ -110,13 +142,30 @@ For each embedding method:
 Embedding quality score = correlation(spatial_distance(w_i, w_j), gradient_correlation(w_i, w_j))
 ```
 
-A good embedding has high negative correlation: spatially close weights have correlated gradients. A bad embedding has zero correlation: spatial proximity is meaningless.
+A good embedding has high negative correlation: spatially close weights have correlated gradients. A bad embedding has zero correlation: spatial proximity is meaningless. An adversarial embedding has positive correlation: correlated weights are deliberately far apart.
+
+```
+Spatial coherence score = correlation(spatial_distance(w_i, w_j), PCA_similarity(w_i, w_j))
+```
+
+Measures whether training with spatial coupling produces spatially organized weight structure. High score = the mechanism is working (not just regularization).
 
 ## Experiment 1.2: Does Embedding Quality Predict Downstream Benefit?
 
 ### Implementation
 
-Take the best and worst embeddings from 1.1. Apply the same astrocyte-like modulation field (from Step 02) to both. Measure whether the quality of the embedding predicts the benefit of the glial mechanism.
+Take the best and worst embeddings from 1.1, plus the adversarial embedding. Apply the same astrocyte-like modulation field (from Step 02) to all. Measure whether the quality of the embedding predicts the benefit of the glial mechanism.
+
+### The Three-Point Validation Curve
+
+The critical test from Critical Review 3: if spatial coupling helps even with a random embedding, the benefit is from regularization (the weak claim). If it only helps with a good embedding AND hurts with an adversarial embedding, spatial structure genuinely matters (the strong claim).
+
+Expected curve:
+- Adversarial embedding + coupling → performance WORSE than baseline
+- Random embedding + coupling → performance NEUTRAL (or slight regularization benefit)
+- Good embedding + coupling → performance BETTER than baseline
+
+This three-point curve is the single strongest piece of evidence for or against the spatial structure hypothesis.
 
 ### Hypothesis
 
@@ -130,11 +179,18 @@ This experiment establishes the **boundary condition** identified in the critica
 
 ### Implementation
 
-Implement the developmental embedding (method F above) and test whether it converges to a useful embedding during training. Key questions:
+Implement both the developmental embedding (method F) and the differentiable embedding (method H). Compare their convergence properties and final quality.
+
+**Developmental (force-based)**: Iteratively adjust positions based on gradient correlation forces. Has the chicken-and-egg problem — needs a warmup period.
+
+**Differentiable (loss-based)**: Positions are PyTorch parameters with a spatial coherence loss term. Gradients flow through both task and spatial objectives simultaneously. Cleaner solution to the chicken-and-egg problem.
+
+Key questions:
 
 - How many training steps are needed before the embedding stabilizes?
 - Does the embedding quality improve monotonically or oscillate?
-- Is there a chicken-and-egg problem (you need good representations to compute good correlations, but you need good embedding to learn good representations)?
+- Does the differentiable approach converge faster than the force-based approach?
+- Is there still a chicken-and-egg problem with differentiable positions, or does joint optimization resolve it?
 
 ### Protocol
 
@@ -143,26 +199,103 @@ Implement the developmental embedding (method F above) and test whether it conve
 3. Track embedding quality score over time
 4. Compare final performance to fixed-embedding baselines
 
+## Experiment 1.4: Embedding Quality Over Training Time
+
+### The Question (from Critical Review 3)
+
+Fixed embeddings (spectral, correlation) capture the network's structure at one point in time. Does this structure remain valid as the network learns? If the spectral embedding becomes meaningless after 5 epochs, all downstream experiments using it are compromised.
+
+### Protocol
+
+1. Compute embedding quality score at regular intervals (every 2 epochs) during training
+2. Track for all fixed embedding methods (linear, spectral, correlation, layered-clustered)
+3. Compare against the differentiable embedding (which co-adapts)
+4. Flag any embedding whose quality drops by >50% from initial value
+
+### Expected Outcomes
+
+- Linear embedding: quality likely stable (structure is fixed by architecture)
+- Spectral embedding: may degrade as weight magnitudes change the effective graph
+- Correlation embedding: likely degrades (computed from initial activations)
+- Differentiable embedding: should maintain or improve quality (co-adapts)
+
+### Implications
+
+If fixed embeddings degrade significantly, this motivates either:
+- Periodic recomputation of the embedding during training
+- Using the differentiable embedding as the default
+- Accepting that the embedding is a "good enough" initialization
+
+## Experiment 1.5: Spatial Coherence — Mechanism vs. Regularization
+
+### The Question (from Critical Review 3)
+
+If spatial coupling improves performance, is it because spatial structure is genuinely informative (the strong claim) or because spatial smoothing of learning rates is just a good regularizer (the weak claim)?
+
+### Protocol
+
+1. Train with spatial coupling using a good embedding → measure spatial coherence
+2. Train without spatial coupling → measure spatial coherence
+3. Compare: does spatial coupling produce more spatially organized weight structure?
+
+### Metric
+
+```python
+# After training, compute top-k PCA components of weight matrix
+pcs = PCA(n_components=10).fit_transform(weights)
+
+# For sampled pairs, compute:
+# - Spatial distance (from embedding)
+# - PC similarity (dot product of PC projections)
+
+spatial_coherence = pearsonr(spatial_distances, pc_similarities)
+```
+
+### Interpretation
+
+- If coupled training has significantly higher spatial coherence than uncoupled → the mechanism is producing spatially organized representations (strong claim supported)
+- If both have similar spatial coherence → the benefit is from regularization, not spatial organization (weak claim)
+
 ## Success Criteria
 
 - At least one embedding method produces a quality score significantly above random
-- The developmental embedding converges to a stable, high-quality embedding
+- The developmental or differentiable embedding converges to a stable, high-quality embedding
 - Embedding quality predicts downstream benefit of spatial coupling (correlation > 0.5)
+- The three-point validation curve is monotonic: adversarial < random < good
+- Spatial coherence is higher for coupled training than uncoupled training
+- The topographic task shows larger benefit from spatial coupling than MNIST
 
 ## Deliverables
 
-- `src/embeddings.py`: All embedding methods implemented
+- `src/embeddings.py`: All 8 embedding methods implemented (linear, random, spectral, correlation, layered-clustered, developmental, adversarial, differentiable)
 - `src/spatial_coupling.py`: Simple nearest-neighbor LR coupling
-- `experiments/embedding_comparison.py`: Full comparison experiment
+- `src/quality.py`: Embedding quality score and spatial coherence measurement
+- `src/temporal_tracking.py`: Quality-over-time tracking
+- `src/topographic_task.py`: Spatially-structured benchmark task
+- `experiments/embedding_comparison.py`: Full comparison experiment (10 conditions × 2 tasks)
+- `experiments/three_point_validation.py`: Adversarial → random → good curve
+- `experiments/temporal_quality.py`: Quality degradation tracking
+- `experiments/spatial_coherence.py`: Mechanism vs. regularization test
 - `results/embedding_quality.csv`: Quality scores for all methods
 - `results/embedding_vs_performance.png`: Scatter plot of embedding quality vs. downstream benefit
+- `results/three_point_curve.png`: The validation curve
+- `results/temporal_trajectories.png`: Quality over training time
+- `results/spatial_coherence.png`: Coupled vs. uncoupled coherence
 
 ## Estimated Timeline
 
-2-3 weeks for implementation and initial results.
+3-4 weeks for implementation and initial results (expanded from 2-3 weeks due to additional experiments from Critical Review 3).
 
 ## Risk Assessment
 
 **High risk**: The developmental embedding may not converge, or may converge too slowly to be practical. If this happens, we need a principled heuristic for embedding assignment.
 
-**Mitigation**: The spectral embedding (method C) provides a reasonable fallback that requires no training data and captures topological structure.
+**Mitigation**: The spectral embedding (method C) provides a reasonable fallback that requires no training data and captures topological structure. The differentiable embedding (method H) provides an alternative self-organizing approach that avoids the force-based convergence issues.
+
+**Medium risk**: Fixed embeddings may degrade during training (identified by Critical Review 3). If spectral/correlation embeddings become meaningless after a few epochs, downstream experiments using them are compromised.
+
+**Mitigation**: Temporal quality tracking (Experiment 1.4) will detect this early. The differentiable embedding co-adapts and should maintain quality. Periodic recomputation is a fallback.
+
+**Medium risk**: MNIST may not show meaningful differences between embeddings because it's too easy and permutation-invariant.
+
+**Mitigation**: The topographic task provides a benchmark where spatial structure should matter. If MNIST shows no differences but the topographic task does, the framework is validated for structured tasks.

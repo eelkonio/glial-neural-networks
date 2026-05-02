@@ -192,6 +192,7 @@ The research is organized into two phases. Phase 1 uses backpropagation (Approac
 | Step | File | Focus | Key Question |
 |------|------|-------|--------------|
 | 01 | [01-spatial-embedding.md](./01-spatial-embedding.md) | Assign spatial coordinates to weights | Does the embedding method matter? |
+| 01b | [01b-theoretical-analysis.md](./01b-theoretical-analysis.md) | Theoretical analysis: why spatial coupling helps | What mechanism drives the benefit? (Gate for Step 02) |
 | 02 | [02-modulation-field.md](./02-modulation-field.md) | Implement the reaction-diffusion modulation field | Does a PDE-coupled learning rate outperform Adam? |
 | 03 | [03-astrocyte-domains.md](./03-astrocyte-domains.md) | Astrocyte units with calcium dynamics and domain coupling | Does spatial correlation of learning rates help? |
 | 04 | [04-turing-stability.md](./04-turing-stability.md) | Characterize Turing instability regimes | Where are the safe vs. pathological parameter regions? |
@@ -295,34 +296,38 @@ If Phase 1 shows no benefit, Phase 2 is still worth pursuing — it's possible t
 4. **Failure is informative** — negative results constrain the framework as usefully as positive ones
 5. **Start small, scale deliberately** — prove mechanisms on toy problems before scaling
 6. **The learning rule matters** — results under backprop may not transfer to local rules, and vice versa
+7. **Permutation controls are mandatory** — every spatial mechanism must be tested with shuffled positions to distinguish spatial structure from regularization (from Critical Review 3)
+8. **Three-point validation** — adversarial embedding (should hurt) → random (neutral) → good (should help) establishes the directional dependence on spatial quality
+9. **Temporal validity** — fixed embeddings must be checked for degradation during training; co-adaptive embeddings (differentiable positions) are the fallback
+10. **Benchmark diversity** — test on both permutation-invariant tasks (MNIST) and spatially-structured tasks (topographic sensor) to establish when spatial mechanisms help
 
 ## Dependencies
 
 ### Phase 1
 
 ```
-01 (embedding) ──────────────────────────────────────────────────────┐
-    |                                                                 |
-    +---> 02 (modulation field) ---> 04 (Turing stability)           |
-    |         |                                                       |
-    |         +---> 03 (astrocyte domains) ---+                       |
-    |                                         |                       |
-    +---> 05 (microglia agents) --------------+                       |
-    |         |                               |                       |
-    |         +---> 06 (error chemotaxis) ----+                       |
-    |                                         |                       |
-    +---> 07 (volume transmission) -----------+                       |
-    |                                         |                       |
-    +---> 08 (multi-timescale) ---------------+                       |
-                                              |                       |
-                                              v                       |
-                                     09 (continual learning)          |
-                                              |                       |
-                                              v                       |
-                                     10 (full ecosystem) <------------+
-                                              |
-                                              v
-                                     11 (scaling and cost)
+01 (embedding) ──> 01b (theoretical analysis / go-no-go gate) ────────┐
+    |                    |                                              |
+    |                    +---> 02 (modulation field) ---> 04 (Turing)  |
+    |                              |                                    |
+    |                              +---> 03 (astrocyte domains) ---+    |
+    |                                                              |    |
+    +---> 05 (microglia agents) -------------------------------+   |    |
+    |         |                                                |   |    |
+    |         +---> 06 (error chemotaxis) ------------------+  |   |    |
+    |                                                       |  |   |    |
+    +---> 07 (volume transmission) -------------------------+  |   |    |
+    |                                                       |  |   |    |
+    +---> 08 (multi-timescale) -----------------------------+  |   |    |
+                                                            |  |   |    |
+                                                            v  v   v    |
+                                                   09 (continual)       |
+                                                            |           |
+                                                            v           |
+                                                   10 (full ecosystem) <+
+                                                            |
+                                                            v
+                                                   11 (scaling and cost)
 ```
 
 ### Phase 2
@@ -461,7 +466,38 @@ If assigning steps to independent AI agents, either:
 - **Spatial computation**: Custom CUDA kernels or PyTorch sparse ops for PDE solving
 - **Agent simulation**: Simple Python classes initially; Numba/JAX for scaling
 - **Visualization**: Matplotlib for fields, NetworkX for topology, Weights & Biases for tracking
-- **Benchmarks**: MNIST/CIFAR-10 for vision; simple sequence tasks for temporal; Split-MNIST/Permuted-MNIST for continual learning; temporal pattern tasks for Phase 3+
+- **Benchmarks**: MNIST/CIFAR-10 for vision; topographic sensor task for spatially-structured computation; simple sequence tasks for temporal; Split-MNIST/Permuted-MNIST for continual learning; temporal pattern tasks for Phase 3+
+- **Structured preconditioning baselines**: KFAC (for comparison with modulation field in Step 02)
+
+---
+
+## Amendments from Critical Review 3
+
+The following cross-cutting concerns apply to ALL steps in Phase 1 (Steps 02-11):
+
+### Mandatory Permutation Control
+
+Every experiment that uses spatial positions must include a **permuted embedding baseline**: randomly shuffle the spatial positions and re-run. If the mechanism still helps with shuffled positions, the benefit is from regularization/temporal dynamics, not spatial structure. This distinguishes the strong claim from the weak claim.
+
+### Three-Point Validation Curve
+
+Step 01 establishes the adversarial → random → good embedding curve. Subsequent steps should verify their mechanisms follow the same pattern: adversarial embedding should make the mechanism hurt, good embedding should make it help.
+
+### KFAC as Structured Preconditioning Baseline
+
+The modulation field (Step 02) may be approximating structured preconditioning. KFAC is added as an explicit baseline to determine whether the PDE dynamics add value beyond known methods.
+
+### Spatially-Structured Benchmark Task
+
+A topographic sensor task (16×16 grid with spatially correlated inputs) is added alongside MNIST/CIFAR-10. The framework predicts greater benefit on tasks with inherent spatial structure. If spatial mechanisms only help on the topographic task, the framework is validated for structured tasks but not general-purpose.
+
+### Temporal Quality Tracking
+
+Fixed embeddings (spectral, correlation) may degrade during training as the network's functional structure evolves. All experiments should track embedding quality over time and flag degradation. The differentiable embedding (learnable positions) is the fallback if fixed embeddings prove unstable.
+
+### Spatial Coherence Metric
+
+Beyond task performance, measure whether spatial coupling produces spatially organized weight structure (PCA-based coherence). This tests the mechanism directly and distinguishes "spatial structure matters" from "smoothing is just regularization."
 
 ## Simulation Fidelity Reference
 

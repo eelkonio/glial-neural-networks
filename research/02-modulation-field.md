@@ -110,12 +110,16 @@ Train the same MLP (from Step 01) with:
 2. **Modulation field + SGD**: SGD with learning rate = base_lr * M(position)
 3. **Modulation field + Adam**: Adam with per-weight LR scaled by M(position)
 4. **Oracle**: Adam with per-weight LR tuned by grid search (upper bound)
+5. **Permuted embedding control**: Modulation field + Adam, but with randomly shuffled spatial positions (tests whether benefit comes from spatial structure or from smoothing-as-regularization)
+6. **KFAC baseline**: Kronecker-factored approximate curvature preconditioner (tests whether the modulation field is approximating known structured preconditioning)
 
 Measure:
 - Test accuracy over training steps
 - Convergence speed
 - Generalization gap (train acc - test acc)
 - Spatial structure of final M field (is it smooth? does it have meaningful patterns?)
+- **Spatial coherence score** (does the field produce spatially organized weight structure?)
+- **Three-point check**: does the field help with good embedding, hurt with adversarial embedding?
 
 ## Experiment 2.2: Diffusion Coefficient Sweep
 
@@ -183,12 +187,55 @@ Qualitative understanding of whether the field develops meaningful spatial struc
 - Wave-like propagation (spreading activation)
 - Correlation with network functional structure
 
+## Experiment 2.5: Glial Field as Implicit Meta-Learner (from Critical Review 3)
+
+### The Question
+
+Instead of the field simply multiplying the learning rate, can the field state serve as an *input* to a learned update function? This reframes the glial system as an implicit meta-optimizer.
+
+### Implementation
+
+```python
+# Standard modulation (current design):
+delta_w = -lr * field(position) * gradient
+
+# Meta-learner variant:
+context = field(position)  # Field state encodes "local learning context"
+update_scale = meta_network(context)  # Small learned function (MLP: 1→8→1)
+delta_w = -lr * update_scale * gradient
+```
+
+The meta-network is tiny (input: field state scalar, hidden: 8 units, output: scalar) and shared across all weights. It learns "given that my local glial environment looks like X, what scale of update is appropriate?"
+
+### Properties
+
+- Spatially local (each weight reads only its local field)
+- Temporally smooth (field state changes slowly via PDE dynamics)
+- Context-aware (the field encodes recent activity history)
+- Learnable (the meta-network adapts during training)
+
+### Comparison
+
+1. **Direct multiplication** (current): delta_w = -lr * M(pos) * grad
+2. **Meta-learner**: delta_w = -lr * meta_net(M(pos)) * grad
+3. **Learned per-weight LR** (no spatial structure): delta_w = -lr * learned_scale[i] * grad
+
+### Expected Result
+
+If the meta-learner outperforms direct multiplication, it suggests the field state carries richer information than a simple scalar multiplier — the nonlinear transformation extracts useful signal. If it matches direct multiplication, the simpler approach suffices.
+
+### Connection to Meta-Learning Literature
+
+This connects to MAML (Model-Agnostic Meta-Learning) and learned optimizers. The difference: MAML learns initialization, while this learns a spatially-varying, temporally-smooth update rule. The glial field provides the "context" that makes the meta-learner spatially aware.
+
 ## Success Criteria
 
 - Modulation field improves convergence speed by >10% over Adam on at least one task
 - Optimal D is in an intermediate range (not 0, not infinity)
 - Field develops visually meaningful spatial structure
 - Full PDE provides measurable benefit over simple smoothing (otherwise, simplify)
+- **Permuted embedding control shows reduced or no benefit** (confirming spatial structure matters, not just smoothing)
+- **Modulation field provides benefit beyond KFAC** (confirming PDE dynamics add value over static preconditioning)
 
 ## Deliverables
 
@@ -207,4 +254,6 @@ Qualitative understanding of whether the field develops meaningful spatial struc
 
 The first review noted: "Whether the computational benefits of the glial system would pay for its simulation cost relative to simply making the standard network larger" is an open question. This experiment begins to answer it by measuring the overhead of the PDE solve vs. the benefit in convergence speed.
 
-The second review noted: "The claim connects to natural gradient methods, information geometry, and structured preconditioners." We should compare the modulation field to KFAC or other structured preconditioners as an additional baseline in later iterations.
+The second review noted: "The claim connects to natural gradient methods, information geometry, and structured preconditioners." We compare the modulation field to KFAC as an explicit baseline (condition 6 in the measurement protocol) to determine whether the PDE dynamics add value beyond known structured preconditioning.
+
+The third review noted: "Add a permuted-embedding baseline to every experiment." Condition 5 (permuted embedding control) tests whether the modulation field's benefit comes from spatial structure or from smoothing-as-regularization. The review also reframes the modulation field as a spatially-structured preconditioner — if it approximately implements KFAC with a spatial constraint, understanding this equivalence tells us whether the PDE dynamics add anything over static KFAC and whether the spatial constraint is better or worse than Kronecker factoring.

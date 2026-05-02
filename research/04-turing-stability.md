@@ -226,3 +226,32 @@ The best performance may be at the "edge of instability" — where the system is
 
 **Risk**: The safe regime may be too narrow to be practical (tiny parameter window).
 **Mitigation**: Add explicit clamping and damping mechanisms that widen the safe regime at the cost of reduced self-organization capability. Trade off between safety and emergent behavior.
+
+## Go/No-Go Gate: Modulation Field Viability (from Critical Review 3)
+
+**This step serves as a go/no-go gate for the entire modulation field approach.** If stable operating regions cannot be reliably identified, the reaction-diffusion modulation field (Steps 02-03) must be redesigned, not just parameter-tuned.
+
+### Gate Criteria
+
+**PASS** (proceed with modulation field as designed):
+- Safe parameter region occupies at least 20% of the tested parameter space
+- At least one safe regime produces measurable benefit over no-field baseline
+- Pathological collapse is avoidable with simple, enforceable constraints
+
+**CONDITIONAL PASS** (proceed with modifications):
+- Safe region exists but is narrow (<20% of parameter space)
+- Action: Add explicit clamping/damping mechanisms to widen the safe region
+- Action: Reduce the PDE to a simpler spatial smoothing if full dynamics are too unstable
+
+**FAIL** (redesign required):
+- No safe parameter region produces benefit over baseline
+- OR pathological collapse occurs unpredictably even within "safe" parameters
+- OR the safe region is so narrow that practical use requires impractical precision in parameter setting
+
+### If the Gate Fails
+
+Options:
+1. **Simplify to static spatial smoothing**: Replace the PDE with periodic Gaussian smoothing on the spatial graph (no dynamics, no instability risk). This loses temporal adaptation but retains spatial structure.
+2. **Add hard constraints**: Enforce M ∈ [0.5, 2.0] with hard clamping, add momentum damping to prevent oscillation, use exponential moving average instead of PDE integration.
+3. **Abandon continuous field, keep discrete domains**: Use only the astrocyte domain approach (Step 03) without the underlying continuous field. Domains provide spatial structure without the instability risk of a continuous PDE.
+4. **Skip to Phase 2**: If spatial modulation under backprop is fundamentally unstable, proceed directly to local learning rules where glia play a constitutive role (the biological argument is stronger there anyway).

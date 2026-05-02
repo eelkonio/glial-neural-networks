@@ -263,6 +263,162 @@ Astrocyte signals should improve pruning quality by:
 - Ablation studies show that mobility, evidence accumulation, AND spatial context each contribute
 - Developmental pruning schedule outperforms constant-rate pruning
 - Astrocyte interaction improves pruning decisions measurably
+- **Redundancy and uniqueness metrics are validated** (high-redundancy weights can be removed without accuracy loss)
+- **Permuted embedding control shows reduced benefit** (spatial context matters, not just evidence accumulation)
+
+## Concrete Metric Definitions (from Critical Review 3)
+
+The `survey()` function uses `redundancy_score` and `is_unique_path` which require concrete, validated definitions:
+
+### redundancy_score
+
+**Definition**: The maximum cosine similarity between a weight's activation pattern and any other weight's activation pattern within the same layer.
+
+```python
+def compute_redundancy_score(weight_idx, layer_activations, n_samples=100):
+    """How replaceable is this weight?
+    
+    High redundancy = another weight in the same layer produces nearly
+    identical activation patterns, so this weight is dispensable.
+    """
+    # Get activation pattern for this weight across n_samples inputs
+    target_pattern = layer_activations[:, weight_idx]  # (n_samples,)
+    
+    # Compare to all other weights in same layer
+    all_patterns = layer_activations  # (n_samples, n_weights_in_layer)
+    
+    # Cosine similarity with every other weight
+    similarities = cosine_similarity(target_pattern, all_patterns)
+    similarities[weight_idx] = 0  # Exclude self
+    
+    return similarities.max()  # Max similarity to any other weight
+```
+
+**Validation experiment**: Remove the top-10% highest-redundancy weights. If accuracy drops less than removing random weights, the metric is valid.
+
+### is_unique_path
+
+**Definition**: Binary indicator of whether removing this weight would disconnect any input-output path in the network graph (considering only weights above a magnitude threshold).
+
+```python
+def compute_is_unique_path(weight_idx, adjacency_matrix, magnitude_threshold=0.01):
+    """Is this weight the only connection between two nodes?
+    
+    A weight is a unique path if removing it (and all weights below
+    magnitude_threshold) would disconnect the graph between its
+    source and target neurons.
+    """
+    # Build graph of "significant" connections (above threshold)
+    significant_graph = adjacency_matrix > magnitude_threshold
+    
+    # Remove this weight
+    modified_graph = significant_graph.copy()
+    modified_graph[source_neuron, target_neuron] = False
+    
+    # Check if source can still reach target via alternative paths
+    reachable = bfs(modified_graph, source_neuron)
+    return 1.0 if target_neuron not in reachable else 0.0
+```
+
+**Validation experiment**: Remove weights with `is_unique_path = 1.0`. Accuracy should drop significantly more than removing random weights of similar magnitude.
+
+### Metric Validation Protocol (Experiment 5.0 — runs before 5.2)
+
+Before using these metrics in the full pruning comparison:
+1. Compute redundancy_score for all weights in a trained network
+2. Remove top-10% highest-redundancy weights → measure accuracy drop
+3. Remove top-10% lowest-redundancy weights → measure accuracy drop
+4. If high-redundancy removal causes LESS accuracy drop than low-redundancy removal, the metric is validated
+5. Repeat for is_unique_path: removing unique-path weights should cause MORE damage
+
+If either metric fails validation, replace with simpler alternatives (e.g., weight magnitude × gradient magnitude for redundancy, node degree for uniqueness).
+
+## Experiment 5.6: Bayesian Evidence Accumulation (from Critical Review 3)
+
+### The Question
+
+The current evidence accumulation is heuristic (weighted sum of eat_me signals). A principled alternative: each agent maintains a posterior probability that each weight is "useless."
+
+### Bayesian Formulation
+
+```python
+class BayesianMicrogliaAgent(MicrogliaAgent):
+    """Microglia agent with Bayesian evidence accumulation."""
+    
+    def __init__(self, position, prior_useless=0.1, **kwargs):
+        super().__init__(position, **kwargs)
+        self.prior_useless = prior_useless  # Sparsity prior
+        self.log_posterior = {}  # weight_idx -> log P(useless | observations)
+    
+    def survey_bayesian(self, territory_indices, weight_stats):
+        """Bayesian update of pruning posterior."""
+        for idx in territory_indices:
+            stats = weight_stats[idx]
+            
+            # Initialize with prior
+            if idx not in self.log_posterior:
+                self.log_posterior[idx] = np.log(self.prior_useless / (1 - self.prior_useless))
+            
+            # Likelihood ratio: P(observations | useless) / P(observations | useful)
+            # Useless weights: low activation, low gradient, high redundancy
+            log_lr = 0.0
+            log_lr += self._activation_likelihood_ratio(stats['activation_frequency'])
+            log_lr += self._gradient_likelihood_ratio(stats['gradient_magnitude_normalized'])
+            log_lr += self._redundancy_likelihood_ratio(stats['redundancy_score'])
+            
+            # Bayesian update
+            self.log_posterior[idx] += log_lr
+    
+    def _activation_likelihood_ratio(self, freq):
+        """P(freq | useless) / P(freq | useful)"""
+        # Useless weights have low activation frequency
+        p_useless = scipy.stats.beta.pdf(freq, a=1, b=5)  # Skewed toward 0
+        p_useful = scipy.stats.beta.pdf(freq, a=2, b=2)   # Uniform-ish
+        return np.log(p_useless / (p_useful + 1e-10) + 1e-10)
+    
+    def decide_bayesian(self):
+        """Prune when posterior probability of uselessness exceeds threshold."""
+        if not self.log_posterior:
+            return 'continue', None
+        
+        max_idx = max(self.log_posterior, key=self.log_posterior.get)
+        posterior_useless = sigmoid(self.log_posterior[max_idx])
+        
+        if posterior_useless > self.evidence_threshold:
+            return 'prune', max_idx
+        
+        return 'continue', None
+```
+
+### Comparison
+
+Add to the ablation study:
+- **Heuristic evidence** (original): Weighted sum of eat_me signals
+- **Bayesian evidence**: Posterior probability with calibrated likelihoods
+
+### Expected Benefit
+
+- Principled uncertainty quantification (agent knows how confident it is)
+- Natural connection to variational dropout literature
+- Less susceptible to spurious decisions (requires consistent evidence)
+- Calibratable threshold (posterior probability has a clear interpretation)
+
+## Experiment 5.7: Permuted Embedding Control
+
+### The Question (from Critical Review 3)
+
+Does spatial context actually help microglia pruning, or would the same evidence accumulation work without meaningful spatial structure?
+
+### Protocol
+
+1. Microglia with good embedding (from Step 01)
+2. Microglia with randomly permuted embedding (same positions, shuffled assignment)
+3. Compare pruning quality at matched sparsity levels
+
+### Interpretation
+
+- If permuted performs similarly → spatial context is not the mechanism; evidence accumulation alone is sufficient
+- If permuted performs worse → spatial locality genuinely helps pruning decisions
 
 ## Deliverables
 

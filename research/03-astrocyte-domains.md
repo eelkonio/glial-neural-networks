@@ -216,12 +216,52 @@ Can the system spontaneously differentiate into specialized domains from uniform
 
 If spontaneous domain formation occurs, Step 04 will characterize the parameter regime where it happens and whether it's beneficial or pathological.
 
+## Experiment 3.6: Domain Alignment with Functional Modules (from Critical Review 3)
+
+### The Question
+
+Do astrocyte domains that align with the network's functional modules outperform randomly-placed domains? If domains span functionally unrelated weights, the calcium dynamics will mix signals from unrelated computations, and modulation will be noise.
+
+### Protocol
+
+1. **Gradient-clustered placement**: Place astrocyte centers at the centroids of gradient-correlation clusters (k-means on gradient correlation matrix)
+2. **Random placement**: Place astrocyte centers randomly in the spatial embedding
+3. **Grid placement**: Place astrocytes on a regular grid
+4. Compare all three placement strategies on the same network and task
+
+### Expected Result
+
+Gradient-clustered placement should outperform random and grid placement because each astrocyte domain governs a functionally coherent set of weights. This validates that domain alignment matters — not just domain existence.
+
+### Implication
+
+If domain alignment matters significantly, it creates a dependency on Step 01's embedding quality: a good embedding naturally clusters functionally related weights spatially, making even grid-placed astrocytes align with functional modules. A bad embedding makes alignment impossible regardless of placement strategy.
+
+## Experiment 3.7: Permuted Embedding Control
+
+### The Question (from Critical Review 3)
+
+Does the astrocyte network still help when spatial positions are randomly shuffled? If yes, the benefit is from the calcium dynamics themselves (temporal smoothing of learning rates), not from spatial structure.
+
+### Protocol
+
+1. Train with astrocyte network + good embedding (from Step 01)
+2. Train with astrocyte network + randomly permuted embedding
+3. Compare performance
+
+### Interpretation
+
+- If permuted embedding performs similarly → benefit is from calcium dynamics (temporal), not spatial structure
+- If permuted embedding performs worse → spatial structure is genuinely what makes astrocyte domains useful
+
 ## Success Criteria
 
 - Coupled astrocyte network outperforms simple modulation field by measurable margin
 - Calcium dynamics produce emergent oscillations with functional significance
 - Domain coupling (gap junctions) provides measurable benefit over isolated units
 - Spontaneous domain specialization emerges from uniform initialization
+- **Gradient-clustered domain placement outperforms random placement** (domain alignment matters)
+- **Permuted embedding control shows reduced benefit** (spatial structure, not just temporal dynamics)
 
 ## Deliverables
 
