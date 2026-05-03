@@ -127,6 +127,7 @@ class CorrelationEmbedding:
         signals = np.zeros((n_weights, self.n_batches), dtype=np.float32)
 
         criterion = torch.nn.CrossEntropyLoss()
+        device = next(model.parameters()).device
 
         batch_iter = iter(data_loader)
         for batch_idx in range(self.n_batches):
@@ -137,6 +138,7 @@ class CorrelationEmbedding:
                 batch_iter = iter(data_loader)
                 inputs, targets = next(batch_iter)
 
+            inputs, targets = inputs.to(device), targets.to(device)
             model.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, targets)

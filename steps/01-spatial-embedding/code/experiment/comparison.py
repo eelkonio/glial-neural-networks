@@ -43,12 +43,18 @@ DEFAULT_SEEDS = [42, 123, 456]
 
 
 def _model_factory() -> BaselineMLP:
-    """Create a fresh BaselineMLP instance."""
-    return BaselineMLP()
+    """Create a fresh BaselineMLP instance (MNIST: 784 inputs)."""
+    return BaselineMLP(input_size=784, n_classes=10)
+
+
+def _topo_model_factory() -> BaselineMLP:
+    """Create a fresh BaselineMLP for topographic task (256 inputs)."""
+    return BaselineMLP(input_size=256, n_classes=10)
 
 
 def get_conditions(
     train_loader: DataLoader,
+    model_factory: Callable[[], BaselineMLP] | None = None,
 ) -> list[tuple[str, Callable[[], BaselineMLP], object | None, CouplingConfig | None]]:
     """Define all 10 experimental conditions.
 
@@ -58,35 +64,39 @@ def get_conditions(
 
     Args:
         train_loader: Training data loader (needed for data-dependent embeddings).
+        model_factory: Callable that creates a fresh model. Defaults to _model_factory (784 inputs).
 
     Returns:
         List of (name, model_factory, embedding, coupling_config) tuples.
     """
+    if model_factory is None:
+        model_factory = _model_factory
+
     # 1. Uncoupled baseline (Adam only, no embedding)
     conditions = [
-        ("uncoupled_baseline", _model_factory, None, None),
+        ("uncoupled_baseline", model_factory, None, None),
     ]
 
     # 2. Linear + coupling
     conditions.append(
-        ("linear_coupled", _model_factory, LinearEmbedding(), DEFAULT_COUPLING)
+        ("linear_coupled", model_factory, LinearEmbedding(), DEFAULT_COUPLING)
     )
 
     # 3. Random + coupling
     conditions.append(
-        ("random_coupled", _model_factory, RandomEmbedding(seed=42), DEFAULT_COUPLING)
+        ("random_coupled", model_factory, RandomEmbedding(seed=42), DEFAULT_COUPLING)
     )
 
     # 4. Spectral + coupling
     conditions.append(
-        ("spectral_coupled", _model_factory, SpectralEmbedding(), DEFAULT_COUPLING)
+        ("spectral_coupled", model_factory, SpectralEmbedding(), DEFAULT_COUPLING)
     )
 
     # 5. LayeredClustered + coupling
     conditions.append(
         (
             "layered_clustered_coupled",
-            _model_factory,
+            model_factory,
             LayeredClusteredEmbedding(),
             DEFAULT_COUPLING,
         )
@@ -96,7 +106,7 @@ def get_conditions(
     conditions.append(
         (
             "correlation_coupled",
-            _model_factory,
+            model_factory,
             CorrelationEmbedding(n_batches=5, subsample_size=500),
             DEFAULT_COUPLING,
         )
@@ -106,7 +116,7 @@ def get_conditions(
     conditions.append(
         (
             "developmental_coupled",
-            _model_factory,
+            model_factory,
             DevelopmentalEmbedding(
                 n_steps=100, subsample_pairs=5000, n_correlation_batches=5
             ),
@@ -118,7 +128,7 @@ def get_conditions(
     conditions.append(
         (
             "adversarial_coupled",
-            _model_factory,
+            model_factory,
             AdversarialEmbedding(n_correlation_batches=5, subsample_size=500),
             DEFAULT_COUPLING,
         )
@@ -128,7 +138,7 @@ def get_conditions(
     conditions.append(
         (
             "differentiable",
-            _model_factory,
+            model_factory,
             DifferentiableEmbedding(lambda_spatial=0.01, subsample_pairs=5000),
             None,
         )
@@ -138,7 +148,7 @@ def get_conditions(
     conditions.append(
         (
             "differentiable_coupled",
-            _model_factory,
+            model_factory,
             DifferentiableEmbedding(lambda_spatial=0.01, subsample_pairs=5000),
             DEFAULT_COUPLING,
         )
@@ -272,7 +282,7 @@ def run_full_comparison(
         "task": "topographic",
     })
 
-    topo_conditions = get_conditions(topo_train)
+    topo_conditions = get_conditions(topo_train, model_factory=_topo_model_factory)
     topo_results = topo_runner.run_comparison(
         conditions=topo_conditions,
         n_seeds=len(seeds),

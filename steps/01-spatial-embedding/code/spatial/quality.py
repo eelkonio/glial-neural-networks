@@ -180,8 +180,9 @@ class QualityMeasurement:
 
         denom = np.sqrt(np.maximum(denom_i * denom_j, 0.0))
 
-        # Handle degenerate cases
-        correlations = np.where(denom > 1e-12, numerator / denom, 0.0)
+        # Handle degenerate cases (suppress warning for expected zero-division)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            correlations = np.where(denom > 1e-12, numerator / denom, 0.0)
 
         # Clamp to [-1, 1]
         np.clip(correlations, -1.0, 1.0, out=correlations)

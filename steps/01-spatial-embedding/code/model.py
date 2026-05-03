@@ -22,17 +22,20 @@ class WeightInfo:
 
 
 class BaselineMLP(nn.Module):
-    """2-hidden-layer MLP for MNIST classification.
+    """2-hidden-layer MLP for classification.
+
+    Default architecture: 784 → 256 (ReLU) → 256 (ReLU) → 10
+    Configurable input size and number of classes for different tasks.
 
     Provides utility methods for accessing weight metadata, flat weight
     tensors, and flat gradient tensors needed by embedding strategies.
     """
 
-    def __init__(self):
+    def __init__(self, input_size: int = 784, n_classes: int = 10):
         super().__init__()
-        self.fc1 = nn.Linear(784, 256)
+        self.fc1 = nn.Linear(input_size, 256)
         self.fc2 = nn.Linear(256, 256)
-        self.fc3 = nn.Linear(256, 10)
+        self.fc3 = nn.Linear(256, n_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x.view(x.size(0), -1)
