@@ -9,5 +9,6 @@ steps/*/results/*.csv
 steps/*/results/*.png
 steps/*/results/*.json
 steps/*/results/*.mp4
-steps/*/results/*.md
+!steps/*/results/summary.md
+!steps/*/results/log-*.md
 !steps/*/results/.gitkeep
