@@ -1,1 +1,13 @@
 .DS_Store
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+steps/*/data/*.pt
+steps/*/data/*.pth
+steps/*/results/*.csv
+steps/*/results/*.png
+steps/*/results/*.json
+steps/*/results/*.mp4
+steps/*/results/*.md
+!steps/*/results/.gitkeep

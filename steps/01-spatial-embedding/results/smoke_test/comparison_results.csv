@@ -1,0 +1,3 @@
+task,condition,embedding_method,coupling_enabled,seed,final_test_accuracy,steps_to_95pct,quality_score,coherence_score,wall_clock_seconds
+mnist,uncoupled_baseline,none,False,42,0.9697,469,0.0,0.0,3.6238913536071777
+mnist,linear_coupled,linear,True,42,0.9698,469,-0.00016840975560487078,-0.005628997025378777,8.988051891326904
