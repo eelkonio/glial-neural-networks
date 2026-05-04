@@ -21,7 +21,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["steps/01-spatial-embedding/code/tests"]
+testpaths = ["steps/01-spatial-embedding/code/tests", "steps/12-local-learning-rules/code/tests"]
 pythonpath = ["steps/01-spatial-embedding"]
 
 [tool.setuptools.packages.find]
