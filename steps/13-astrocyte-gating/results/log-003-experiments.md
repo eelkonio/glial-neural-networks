@@ -12,6 +12,10 @@ Built the complete experiment infrastructure (runner, metrics, conditions, ablat
 
 **Outcome**: Pipeline verified. Ready for full 50-epoch × 3-seed experiment run (estimated 3-6 hours). The quick run confirms the central prediction will likely be "refuted" — gating doesn't overcome the fundamental credit assignment problem of local rules.
 
+**Deeper implication**: The three-factor rule's eligibility traces (pre × post correlation) don't carry enough directional information for ANY gate signal to amplify into useful weight updates. The problem isn't the gate — it's the substrate. The eligibility trace captures "these neurons co-activated" but not "in which direction should the connection change." Even a perfect gate (one that knows the correct answer) can only modulate the magnitude of an undirected signal. This suggests the framework needs either: (a) a richer eligibility trace that captures directional information, (b) a gate that provides its OWN directional signal independent of the trace (which is what Variant C attempts), or (c) a fundamentally different architecture where local rules can learn (e.g., shallower networks, different activation functions, or contrastive objectives).
+
+**What to watch in the full 50-epoch run**: Whether the volume teaching signal (Variant C) — which provides its own directional error signal via label projections — can break above chance. If it does, the hypothesis is partially confirmed (glia as teaching signal works). If it doesn't, the three-factor rule itself is the bottleneck, not the gate.
+
 ---
 
 ## Task 12: Experiment Runner
