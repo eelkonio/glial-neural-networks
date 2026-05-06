@@ -8,39 +8,39 @@ Python + PyTorch, targeting MPS GPU on M4 Pro. Reuses Step 12's ThreeFactorRule,
 
 ## Tasks
 
-- [ ] 1. Set up project structure and imports from Step 12
-  - [ ] 1.1 Create directory structure and module scaffolding
+- [x] 1. Set up project structure and imports from Step 12
+  - [x] 1.1 Create directory structure and module scaffolding
     - Create `steps/13-astrocyte-gating/` with subdirectories: `docs/`, `code/`, `code/gates/`, `code/calcium/`, `code/domains/`, `code/experiment/`, `code/tests/`, `data/`, `results/`
     - Create `__init__.py` files for all Python packages
     - Create `steps/13-astrocyte-gating/README.md` summarizing the step's purpose, how to run experiments, and how to interpret results
     - Create `steps/13-astrocyte-gating/docs/decisions.md` for recording design decisions
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
-  - [ ] 1.2 Set up imports and verify Step 12 reuse
+  - [x] 1.2 Set up imports and verify Step 12 reuse
     - Create `code/imports.py` or equivalent module that imports ThreeFactorRule, ThirdFactorInterface, LocalMLP, data pipeline, and experiment runner from `steps/12-local-learning-rules/code/`
     - Import spatial embedding utilities from `steps/01-spatial-embedding/code/`
     - Verify imports work by running a quick smoke test (instantiate LocalMLP, load FashionMNIST)
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
 
-- [ ] 2. Implement three-factor error signal stability fix
-  - [ ] 2.1 Implement error clipping and eligibility normalization in `code/stability.py`
+- [x] 2. Implement three-factor error signal stability fix
+  - [x] 2.1 Implement error clipping and eligibility normalization in `code/stability.py`
     - Implement `clip_error_signal(error, threshold=10.0)` that clips magnitude while preserving sign
     - Implement `normalize_eligibility(trace, norm_threshold=100.0, safe_constant=1.0)` that normalizes trace to unit norm × safe_constant when Frobenius norm exceeds threshold
     - These functions will be applied within the ThreeFactorRule integration (wrapping Step 12's rule)
     - _Requirements: 2.1, 2.2, 2.4_
 
-  - [ ]* 2.2 Write property tests for stability fix (Properties 1, 2)
+  - [x]* 2.2 Write property tests for stability fix (Properties 1, 2)
     - **Property 1: Sign-Preserving Error Clipping** — for any error tensor, clipped output has no element exceeding threshold in absolute value, and sign of every non-zero element is preserved
     - **Property 2: Eligibility Trace Norm Bounding** — for any trace exceeding norm threshold, normalized output has norm equal to safe_constant, and direction (unit vector) is preserved
     - **Validates: Requirements 2.1, 2.2, 2.4**
 
-  - [ ] 2.3 Verify stability fix enables 50-epoch training without NaN/Inf
+  - [x] 2.3 Verify stability fix enables 50-epoch training without NaN/Inf
     - Run ThreeFactorRule with layer-wise error + stability fix for 50 epochs on FashionMNIST (single seed)
     - Assert no NaN or Inf in any weight tensor at any epoch
     - _Requirements: 2.3_
 
-- [ ] 3. Implement Li-Rinzel calcium dynamics
-  - [ ] 3.1 Implement `CalciumDynamics` class in `code/calcium/li_rinzel.py`
+- [x] 3. Implement Li-Rinzel calcium dynamics
+  - [x] 3.1 Implement `CalciumDynamics` class in `code/calcium/li_rinzel.py`
     - Implement the Li-Rinzel two-variable system: cytoplasmic [Ca²⁺] and IP3 receptor inactivation h
     - Implement fluxes: J_channel (IP3-dependent ER release), J_pump (SERCA reuptake), J_leak (passive ER leak)
     - IP3 production proportional to domain activity (glutamate spillover analog)
@@ -49,18 +49,18 @@ Python + PyTorch, targeting MPS GPU on M4 Pro. Reuses Step 12's ThreeFactorRule,
     - Implement `step()`, `get_calcium()`, `get_gate_open()`, `reset()`, `state_dict()`, `load_state_dict()`
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-  - [ ] 3.2 Implement `CalciumConfig` dataclass in `code/calcium/config.py`
+  - [x] 3.2 Implement `CalciumConfig` dataclass in `code/calcium/config.py`
     - All Li-Rinzel parameters with defaults from design document
     - Include c0, c1, a2, d2, K_pump constants
     - _Requirements: 3.4_
 
-  - [ ]* 3.3 Write property tests for calcium dynamics (Properties 3, 4)
+  - [x]* 3.3 Write property tests for calcium dynamics (Properties 3, 4)
     - **Property 3: Calcium Concentration Invariant** — for any sequence of domain activities (including extremes), calcium stays in [0, ca_max] and h stays in [0, 1] after each step
     - **Property 4: IP3 Proportionality** — for any two activities a₁ > a₂ ≥ 0, IP3 production for a₁ ≥ IP3 production for a₂
     - **Validates: Requirements 3.3, 3.6**
 
-- [ ] 4. Implement astrocyte domain assignment
-  - [ ] 4.1 Implement `DomainAssignment` class in `code/domains/assignment.py`
+- [x] 4. Implement astrocyte domain assignment
+  - [x] 4.1 Implement `DomainAssignment` class in `code/domains/assignment.py`
     - Partition output neurons per layer into non-overlapping domains of configurable size (default 16)
     - "spatial" mode: k-means clustering on Step 01 3D coordinates for spatially coherent domains
     - "random" mode: random assignment for ablation
@@ -69,22 +69,22 @@ Python + PyTorch, targeting MPS GPU on M4 Pro. Reuses Step 12's ThreeFactorRule,
     - Compute once at init, immutable thereafter
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-  - [ ] 4.2 Implement `DomainConfig` dataclass in `code/domains/config.py`
+  - [x] 4.2 Implement `DomainConfig` dataclass in `code/domains/config.py`
     - domain_size, mode, embedding_path, seed fields with defaults from design
     - _Requirements: 4.2, 4.3_
 
-  - [ ]* 4.3 Write property tests for domain assignment (Properties 5, 6)
+  - [x]* 4.3 Write property tests for domain assignment (Properties 5, 6)
     - **Property 5: Domain Partition Validity** — for any layer size and domain_size config, produces exactly ceil(out_features / domain_size) domains where every neuron belongs to exactly one domain (no overlaps, no unassigned)
     - **Property 6: Domain Assignment Immutability** — calling get_domain_indices multiple times returns identical results
     - **Validates: Requirements 4.1, 4.2, 4.3, 4.4**
 
-- [ ] 5. Checkpoint — Verify calcium dynamics and domain assignment
+- [x] 5. Checkpoint — Verify calcium dynamics and domain assignment
   - Ensure all tests pass, ask the user if questions arise.
   - Verify CalciumDynamics produces bounded calcium with sustained input
   - Verify DomainAssignment partitions 128-unit layers into 8 domains correctly
   - Verify spatial embedding loads from Step 01
 
-- [ ] 6. Implement Binary Gate (Variant A)
+- [-] 6. Implement Binary Gate (Variant A)
   - [ ] 6.1 Implement `BinaryGate` class in `code/gates/binary_gate.py`
     - Implement ThirdFactorInterface protocol (compute_signal, reset)
     - Output 1.0 for neurons in domains where Ca > threshold, 0.0 otherwise

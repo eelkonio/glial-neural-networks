@@ -21,8 +21,11 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["steps/01-spatial-embedding/code/tests", "steps/12-local-learning-rules/code/tests"]
-pythonpath = ["steps/01-spatial-embedding"]
+testpaths = ["steps/01-spatial-embedding/code/tests", "steps/12-local-learning-rules/code/tests", "steps/13-astrocyte-gating/code/tests"]
+pythonpath = ["steps/01-spatial-embedding", "steps/12-local-learning-rules"]
+markers = [
+    "property: marks tests as property-based tests (deselect with '-m \"not property\"')",
+]
 
 [tool.setuptools.packages.find]
 where = ["steps/01-spatial-embedding"]
