@@ -1,5 +1,19 @@
 # Step 01b: Theoretical Analysis — Results Report
 
+## General
+
+### Step 01b Results & Insights
+
+The mechanism behind spatial LR coupling under backprop is a combination of noise reduction (helps at small batch sizes) and regularization (helps at large batch sizes). Preconditioning is ruled out — the spectral embedding has only r=0.03 correlation with Fisher information structure (negligible).
+
+**Key insight**: Spatial coupling under backprop is NOT a preconditioner. It doesn't approximate the Fisher information or KFAC. It's just a weak regularizer/noise reducer that happens to use spatial structure as the smoothing kernel — but any random kernel would work equally well.
+
+**Batch size finding**: Coupling helps most at batch_size=16 (+0.83%, noise reduction) and batch_size=512 (+0.74%, regularization), but is neutral at medium batch sizes (64-128). This dual mechanism explains why the effect is small and inconsistent.
+
+**Outcome**: All three gate criteria FAIL. The modulation field (Step 02) is not justified for FC architectures under backprop. Proceed to Phase 2.
+
+---
+
 **Date**: 2026-05-03  
 **Runtime**: 1684.5 seconds (28.1 minutes)  
 **Hardware**: MacBook Pro M4 Pro, 24GB, MPS GPU

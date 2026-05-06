@@ -1,5 +1,17 @@
 # Spatial Embedding Experiment Results Summary
 
+## General
+
+### Step 01 v1 Results & Insights
+
+This was the first run of the spatial embedding experiments. All quality scores were indistinguishable from zero — an informative null result. The experiment conditions (easy task MNIST, short training 10 epochs, aggressive subsampling 500 weights) didn't give spatial coupling room to differentiate from noise.
+
+**Key insight**: The experiment was correctly designed but the operating conditions were too easy for spatial mechanisms to matter. This led to the v2 run with harder conditions (FashionMNIST, 50 epochs, 5000 subsample).
+
+**Outcome**: Inconclusive — rerun needed with harder conditions. See `steps/01-spatial-embedding-v2/` for the definitive result.
+
+---
+
 **Total experiment time**: 1391.3 seconds (23.2 minutes)  
 **Date**: 2026-05-03  
 **Hardware**: MacBook Pro M4 Pro, 24GB, MPS GPU

@@ -1,5 +1,19 @@
 # Step 01 v2: Spatial Embedding Results — Comprehensive Report
 
+## General
+
+### Step 01 v2 Results & Insights
+
+Spatial LR coupling provides a tiny regularization benefit (+0.14%) that is completely independent of embedding quality. Random embeddings help just as much as spectral or correlation-based ones. Adversarial embeddings don't hurt. The spatial structure hypothesis is not supported under backpropagation for fully-connected architectures.
+
+**Key insight**: The benefit of spatial coupling under backprop is pure regularization (equivalent to mild dropout/weight decay). Spatial structure is irrelevant because backprop already solves credit assignment globally — it doesn't need spatial locality.
+
+**Critical finding for Phase 2**: This does NOT mean spatial structure is useless. Step 12 later showed that spatial correlation under local learning rules is 104× stronger than under backprop. The framework's value lies in Phase 2 (local rules) where glia are constitutive, not Phase 1 (backprop) where they're merely modulatory.
+
+**Outcome**: Go/no-go gate FAILS for Phase 1 modulation field. Proceed to Phase 2 (local learning rules).
+
+---
+
 **Date**: 2026-05-03  
 **Total runtime**: 5945.8 seconds (99.1 minutes)  
 **Hardware**: MacBook Pro M4 Pro, 24GB, MPS GPU  
