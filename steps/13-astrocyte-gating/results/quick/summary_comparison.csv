@@ -1,0 +1,7 @@
+condition,mean_accuracy,std_accuracy,best_accuracy,n_seeds,any_nan
+three_factor_random,0.100000,0.000000,0.100000,1,False
+three_factor_reward,0.099600,0.000000,0.099800,1,False
+binary_gate,0.100000,0.000000,0.100000,1,False
+directional_gate,0.100000,0.000000,0.100000,1,False
+volume_teaching,0.100000,0.000000,0.100000,1,False
+backprop,0.874400,0.000000,0.874400,1,False

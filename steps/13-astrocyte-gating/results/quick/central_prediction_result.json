@@ -1,0 +1,23 @@
+{
+  "conclusion": "hypothesis refuted",
+  "best_gated_condition": "binary_gate",
+  "best_gated_mean_accuracy_percent": 10.0,
+  "ungated_baseline_percent": 10.0,
+  "benefit_local_percent": 0.0,
+  "benefit_local_std_percent": 0.0,
+  "benefit_local_ci_lower": 0.0,
+  "benefit_local_ci_upper": 0.0,
+  "benefit_backprop_percent": 0.14,
+  "n_seeds": 1,
+  "all_gated_accuracies": {
+    "binary_gate": [
+      10.0
+    ],
+    "directional_gate": [
+      10.0
+    ],
+    "volume_teaching": [
+      10.0
+    ]
+  }
+}
