@@ -160,4 +160,72 @@ The per-epoch training cost is identical across all dimensionalities because:
 
 ---
 
+## 8. Cross-Layer Domains: Dissolving the Layer Abstraction
+
+**Origin**: Discussion during Step 14 design (2026-05-07)
+
+**Observation**: In biology, astrocyte territories don't respect layer boundaries. A single astrocyte enwraps synapses from neurons at different processing stages that happen to be spatially close. The "domain" is defined by physical proximity, not by computational stage. Furthermore, biological networks don't have discrete layers at all — they have neurons in 3D space connected by axons of varying length and myelination. Signal speed differences (myelination) mean that activity cannot be meaningfully grouped "per layer" in the temporal sense either.
+
+**Question**: What happens if we allow domains to span multiple layers? Does this improve learning by providing richer cross-layer coordination, or does it break the prediction mechanism (which currently assumes layer-to-layer structure)?
+
+**Hypothesis**: Cross-layer domains could provide a form of implicit inter-layer coordination that doesn't require explicit prediction. If neurons from layers 2 and 3 share a domain, they share a calcium state, a D-serine gate, and a competition pool. This means a layer-3 neuron's activity directly influences the BCM threshold of a layer-2 neuron in the same domain — creating implicit feedback without explicit feedback connections.
+
+**Design considerations**:
+- Requires a unified spatial embedding across ALL neurons (not per-layer)
+- Domain assignment would group neurons by spatial proximity regardless of layer
+- The prediction mechanism would need rethinking — can't predict "next layer" if domains span layers
+- Competition within a cross-layer domain would create inter-layer winner-take-all dynamics
+- This naturally leads toward the graph-neural-network view where "layers" are just a connectivity pattern, not a fundamental structure
+
+**Relationship to Steps 17-20**: The temporal simulation steps (propagation delays, myelination) already begin dissolving the layer abstraction. Cross-layer domains would fit naturally once signals have variable delays — at that point, "which layer is this neuron in?" becomes less meaningful than "which spatial region is this neuron in?"
+
+**Estimated Time Cost**: Significant architectural rework. The current LocalMLP assumes strict layer-by-layer forward pass. A cross-layer domain model would require either:
+- A graph-based network (not MLP) where forward pass order is determined by topology
+- Or keeping the MLP forward pass but allowing domains to span layers for the learning rule only
+
+The second option is feasible within the current framework (~2-3 days of implementation). The first is a larger architectural change (Steps 17-20 territory).
+
+**Priority**: Medium-high conceptually, but should wait until after Step 14 validates that domain-level prediction works at all. If domain-level prediction succeeds within layers, cross-layer domains become the natural next generalization.
+
+---
+
+## 9. Soft Domain Boundaries: Diffusion Bleed and Gap Junction Propagation
+
+**Origin**: Discussion during Step 14 design review (2026-05-07)
+
+**Observation**: In biology, domain boundaries are not hard walls. Three mechanisms create cross-domain influence:
+
+1. **Chemical diffusion doesn't stop at boundaries.** D-serine, ATP, and glutamate diffuse continuously through extracellular space. Concentration falls off with distance (1/r in 3D) but never reaches zero. Neurons near domain edges receive signals from adjacent domains — weaker, but non-zero.
+
+2. **Gap junctions connect adjacent astrocytes.** The glial syncytium (network of gap-junction-coupled astrocytes) means calcium waves propagate between domains. A "surprised" domain's calcium signal leaks into its neighbors, creating a spatial gradient of surprise rather than a binary on/off.
+
+3. **Structural remodeling reassigns neurons.** Microglia-mediated pruning and axonal sprouting can effectively move synapses from one astrocyte's territory to another's over developmental timescales. Domain membership is not fixed — it evolves.
+
+**Question**: Does replacing hard domain boundaries with soft (distance-weighted) boundaries improve learning? Does inter-domain calcium propagation via gap junctions provide useful coordination?
+
+**Hypothesis**: Soft boundaries could help by:
+- Providing smoother gradients of modulation (no discontinuities at domain edges)
+- Allowing "surprise" to propagate spatially — if one domain is surprised, its neighbors get a weaker but non-zero learning signal
+- Creating a natural spatial smoothing of the prediction error signal
+- Enabling neurons at domain boundaries to integrate information from multiple domains
+
+**Design**:
+- Replace hard domain broadcast (neuron gets exactly its domain's signal) with distance-weighted interpolation (neuron gets a weighted average of nearby domains' signals, weighted by 1/distance)
+- Add gap junction coupling: after computing per-domain calcium, apply a diffusion step that spreads calcium between adjacent domains (strength proportional to gap junction conductance)
+- Optionally: allow domain reassignment every N epochs based on which domain's signal each neuron responds to most strongly
+
+**Implementation approach**:
+- Compute domain signals as before (prediction error, information signal, surprise)
+- For each neuron, compute a weighted average of all domains' signals, weighted by the neuron's distance to each domain center
+- The weighting function could be Gaussian: w(d) = exp(-distance² / 2σ²) where σ controls boundary softness
+- σ=0 recovers hard boundaries; σ→∞ makes all domains equivalent (global signal)
+
+**Estimated Time Cost**: Moderate. The distance-weighted interpolation adds O(n_neurons × n_domains) computation per layer per batch. With 128 neurons and 8 domains, that's 1024 multiplications — negligible. The gap junction diffusion step is O(n_domains²) = 64 operations — also negligible. Main cost is implementation time (~1 day).
+
+**Priority**: Medium. Should be tested after Step 14 validates hard-boundary domain prediction. If hard boundaries work, soft boundaries might improve further. If hard boundaries don't work, soft boundaries are unlikely to save it.
+
+**Relationship to research plan**: Connects to Step 07 (volume transmission with distance-dependent diffusion) and Step 05 (glia intercommunication via gap junctions). This experiment would be a simplified preview of those steps applied to the predictive coding framework.
+
+---
+
 *Last updated: 2026-05-07*
